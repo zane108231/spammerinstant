@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NGL Basic Sender</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: Arial, sans-serif;
+            background: #111;
+            color: #eee;
+            min-height: 100vh;
+            padding: 24px;
+        }
+        .wrap { max-width: 760px; margin: 0 auto; }
+        h1 { font-size: 1.6rem; margin-bottom: 8px; }
+        p.sub { color: #aaa; margin-bottom: 24px; }
+        .card {
+            background: #1b1b1b;
+            border: 1px solid #333;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+        label { display: block; margin-bottom: 8px; color: #ccc; font-size: 0.9rem; }
+        input[type=text] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #444;
+            border-radius: 8px;
+            background: #0f0f0f;
+            color: #fff;
+            font-size: 1rem;
+        }
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 16px;
+        }
+        @media (min-width: 520px) {
+            .controls { grid-template-columns: repeat(4, 1fr); }
+        }
+        button {
+            border: none;
+            border-radius: 8px;
+            padding: 14px 12px;
+            font-size: 0.95rem;
+            font-weight: bold;
+            cursor: pointer;
+            color: #fff;
+            transition: opacity 0.15s;
+        }
+        button:disabled { opacity: 0.35; cursor: not-allowed; }
+        .start { background: #1f8b4c; }
+        .pause { background: #b8860b; }
+        .resume { background: #0077cc; }
+        .stop { background: #b42318; }
+        .status-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        .status-pill {
+            display: inline-block;
+            padding: 8px 14px;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            letter-spacing: 0.05em;
+        }
+        .idle { background: #333; }
+        .running { background: #1f8b4c; }
+        .paused { background: #b8860b; }
+        .stopped { background: #555; }
+        .stopping { background: #b42318; animation: pulse 1s infinite; }
+        @keyframes pulse { 50% { opacity: 0.6; } }
+        .conn { font-size: 0.8rem; color: #888; }
+        .conn.live { color: #6ee7a8; }
+        .conn.dead { color: #ff8a80; }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+        .stat {
+            background: #121212;
+            border: 1px solid #2a2a2a;
+            border-radius: 8px;
+            padding: 14px;
+            text-align: center;
+        }
+        .stat .num { font-size: 1.6rem; font-weight: bold; }
+        .stat .lbl { color: #888; font-size: 0.85rem; margin-top: 4px; }
+        .detail-grid {
+            margin-top: 14px;
+            display: grid;
+            gap: 8px;
+        }
+        .detail-row {
+            background: #121212;
+            border: 1px solid #2a2a2a;
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-size: 0.9rem;
+        }
+        .detail-row .key { color: #888; font-size: 0.78rem; text-transform: uppercase; margin-bottom: 4px; }
+        .detail-row .val { word-break: break-word; }
+        .detail-row.error .val { color: #ff8a80; }
+        .detail-row.ok .val { color: #6ee7a8; }
+        .log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .clear-btn {
+            background: #333;
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            font-weight: normal;
+        }
+        #log {
+            height: 320px;
+            overflow-y: auto;
+            background: #0a0a0a;
+            border: 1px solid #2a2a2a;
+            border-radius: 8px;
+            padding: 12px;
+            font-family: Consolas, monospace;
+            font-size: 0.82rem;
+        }
+        .log-ok { color: #6ee7a8; }
+        .log-fail { color: #ff8a80; }
+        .log-info { color: #9ecbff; }
+        .log-warn { color: #ffd166; }
+        .hint { margin-top: 12px; color: #666; font-size: 0.85rem; }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <h1>NGL Basic Sender — Control Panel</h1>
+        <p class="sub">Full control from the browser: start, pause, resume, or stop anytime.</p>
+
+        <div class="card">
+            <label>Target username (edit in app.py)</label>
+            <input type="text" id="username" value="{{ target }}" readonly>
+
+            <div class="controls">
+                <button class="start" id="btnStart">▶ Start</button>
+                <button class="pause" id="btnPause" disabled>⏸ Pause</button>
+                <button class="resume" id="btnResume" disabled>▶ Resume</button>
+                <button class="stop" id="btnStop" disabled>⏹ Stop</button>
+            </div>
+            {% if auto_start %}
+            <p class="hint">Auto-starts on launch. Use Stop to halt, Start to run again.</p>
+            {% endif %}
+        </div>
+
+        <div class="card">
+            <div class="status-header">
+                <div id="statusPill" class="status-pill idle">IDLE</div>
+                <div id="connStatus" class="conn">Connecting...</div>
+            </div>
+
+            <div class="stats">
+                <div class="stat"><div class="num" id="sentCount">0</div><div class="lbl">Sent OK</div></div>
+                <div class="stat"><div class="num" id="failCount">0</div><div class="lbl">Failed</div></div>
+                <div class="stat"><div class="num" id="attemptCount">0</div><div class="lbl">Total Tries</div></div>
+            </div>
+
+            <div class="detail-grid">
+                <div class="detail-row">
+                    <div class="key">Currently / last message</div>
+                    <div class="val" id="lastMsg">—</div>
+                </div>
+                <div class="detail-row" id="errorRow">
+                    <div class="key">Last error</div>
+                    <div class="val" id="lastError">None</div>
+                </div>
+                <div class="detail-row">
+                    <div class="key">Last HTTP status</div>
+                    <div class="val" id="httpStatus">—</div>
+                </div>
+                <div class="detail-row">
+                    <div class="key">Message pool</div>
+                    <div class="val"><span id="poolCount">0</span> messages loaded</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="log-header">
+                <strong>Live activity log</strong>
+                <button class="clear-btn" id="btnClearLog">Clear log</button>
+            </div>
+            <div id="log"></div>
+        </div>
+    </div>
+
+    <script>
+        const els = {
+            username: document.getElementById('username'),
+            btnStart: document.getElementById('btnStart'),
+            btnPause: document.getElementById('btnPause'),
+            btnResume: document.getElementById('btnResume'),
+            btnStop: document.getElementById('btnStop'),
+            btnClearLog: document.getElementById('btnClearLog'),
+            statusPill: document.getElementById('statusPill'),
+            connStatus: document.getElementById('connStatus'),
+            sentCount: document.getElementById('sentCount'),
+            failCount: document.getElementById('failCount'),
+            attemptCount: document.getElementById('attemptCount'),
+            lastMsg: document.getElementById('lastMsg'),
+            lastError: document.getElementById('lastError'),
+            httpStatus: document.getElementById('httpStatus'),
+            poolCount: document.getElementById('poolCount'),
+            errorRow: document.getElementById('errorRow'),
+            log: document.getElementById('log'),
+        };
+
+        let source = null;
+
+        function ts() {
+            return new Date().toLocaleTimeString();
+        }
+
+        function addLog(text, cls = 'log-info') {
+            const line = document.createElement('div');
+            line.className = cls;
+            line.textContent = `[${ts()}] ${text}`;
+            els.log.appendChild(line);
+            els.log.scrollTop = els.log.scrollHeight;
+        }
+
+        function updateUI(data) {
+            const status = data.status || 'idle';
+            els.statusPill.textContent = status.toUpperCase();
+            els.statusPill.className = 'status-pill ' + status;
+
+            els.sentCount.textContent = data.sent ?? 0;
+            els.failCount.textContent = data.failed ?? 0;
+            els.attemptCount.textContent = data.attempts ?? 0;
+            els.lastMsg.textContent = data.last_message || '—';
+            els.poolCount.textContent = data.message_count ?? 0;
+            els.httpStatus.textContent = data.last_http_status ?? '—';
+
+            const err = data.last_error || '';
+            els.lastError.textContent = err || 'None';
+            els.errorRow.className = 'detail-row' + (err ? ' error' : ' ok');
+
+            const running = !!data.running;
+            const paused = !!data.paused;
+
+            els.btnStart.disabled = running;
+            els.btnPause.disabled = !running || paused;
+            els.btnResume.disabled = !running || !paused;
+            els.btnStop.disabled = !running;
+        }
+
+        async function api(path, label) {
+            els.connStatus.textContent = 'Sending command...';
+            const res = await fetch(path, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: els.username.value.trim() }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Request failed');
+            addLog(`${label} OK`, 'log-info');
+            updateUI(data);
+            return data;
+        }
+
+        els.btnStart.addEventListener('click', () => {
+            api('/api/start', 'Start').catch(e => addLog(`Start failed: ${e.message}`, 'log-fail'));
+        });
+
+        els.btnPause.addEventListener('click', () => {
+            api('/api/pause', 'Pause').catch(e => addLog(`Pause failed: ${e.message}`, 'log-fail'));
+        });
+
+        els.btnResume.addEventListener('click', () => {
+            api('/api/resume', 'Resume').catch(e => addLog(`Resume failed: ${e.message}`, 'log-fail'));
+        });
+
+        els.btnStop.addEventListener('click', () => {
+            api('/api/stop', 'Stop').catch(e => addLog(`Stop failed: ${e.message}`, 'log-fail'));
+        });
+
+        els.btnClearLog.addEventListener('click', () => {
+            els.log.innerHTML = '';
+            addLog('Log cleared', 'log-warn');
+        });
+
+        function connectStream() {
+            if (source) source.close();
+            source = new EventSource('/api/stream');
+
+            source.onopen = () => {
+                els.connStatus.textContent = 'Live connected';
+                els.connStatus.className = 'conn live';
+            };
+
+            source.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+
+                if (data.type === 'progress') {
+                    updateUI(data);
+                    if (data.ok) {
+                        addLog(`#${data.attempts} SENT: ${data.last_message}`, 'log-ok');
+                    } else {
+                        addLog(`#${data.attempts} FAILED: ${data.last_message} — ${data.error || data.last_error}`, 'log-fail');
+                    }
+                } else if (data.type === 'stopped') {
+                    updateUI(data);
+                    addLog(`STOPPED — ${data.sent} sent, ${data.failed} failed`, 'log-warn');
+                } else if (data.type === 'stopping') {
+                    updateUI(data);
+                    addLog('Stopping...', 'log-warn');
+                } else if (data.type === 'paused') {
+                    updateUI(data);
+                    addLog('PAUSED — no messages sending', 'log-warn');
+                } else if (data.type === 'resumed') {
+                    updateUI(data);
+                    addLog('RESUMED — sending again', 'log-info');
+                } else if (data.type === 'started') {
+                    updateUI(data);
+                    addLog(`STARTED → ${data.username}`, 'log-info');
+                } else {
+                    updateUI(data);
+                }
+            };
+
+            source.onerror = () => {
+                els.connStatus.textContent = 'Reconnecting...';
+                els.connStatus.className = 'conn dead';
+                source.close();
+                setTimeout(connectStream, 2000);
+            };
+        }
+
+        connectStream();
+
+        setInterval(() => {
+            fetch('/api/status')
+                .then(r => r.json())
+                .then(updateUI)
+                .catch(() => {});
+        }, 3000);
+
+        fetch('/api/status')
+            .then(r => r.json())
+            .then(data => {
+                updateUI(data);
+                if (data.running) {
+                    addLog(`Active session → ${data.username} (${data.status})`, 'log-info');
+                }
+            });
+    </script>
+</body>
+</html>
