@@ -11,8 +11,10 @@ from queue import Queue, Empty
 app = Flask(__name__)
 
 # ============ EDIT THIS ============
-TARGET_USERNAME = "csabsecretwall_"   # NGL username to send to
+TARGET_USERNAME = "jihyo.woon"   # NGL username to send to
 AUTO_START = True                # start sending as soon as app.py runs
+SEND_DELAY_MIN = 0.2             # seconds between messages (min)
+SEND_DELAY_MAX = 0.5             # seconds between messages (max)
 # ===================================
 
 BASE_DIR = Path(__file__).parent
@@ -156,7 +158,7 @@ def send_loop(username):
             paused = state.paused
 
         if paused:
-            time.sleep(0.3)
+            time.sleep(0.1)
             continue
 
         message = deck.draw()
@@ -181,7 +183,7 @@ def send_loop(username):
             'status_code': result['status_code'],
         })
 
-        time.sleep(random.uniform(1.0, 2.0))
+        time.sleep(random.uniform(SEND_DELAY_MIN, SEND_DELAY_MAX))
 
 
 def start_sending(username=None):
