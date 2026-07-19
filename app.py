@@ -11,7 +11,7 @@ from queue import Queue, Empty
 app = Flask(__name__)
 
 # ============ EDIT THIS ============
-TARGET_USERNAME = "csabsecretwall_"   # NGL username to send to
+TARGET_USERNAME = "csabconfessionwall"   # NGL username to send to
 AUTO_START = True                # start sending as soon as app.py runs
 SEND_DELAY_MIN = 0.8             # seconds between messages (min)
 SEND_DELAY_MAX = 1.0             # seconds between messages (max)
